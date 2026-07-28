@@ -862,4 +862,57 @@ async function restaurarBackup(event) {
 // Close modal on outside click
 document.addEventListener('click', function(e) {
     if (e.target.classList.contains('modal')) { e.target.classList.remove('active'); }
+
+// ==========================================
+// EXPOSIÇÃO DE FUNÇÕES GLOBAIS (PARA O HTML)
+// ==========================================
+window.showSection = showSection;
+window.toggleSidebar = toggleSidebar;
+window.openModal = openModal;
+window.closeModal = closeModal;
+window.openAlterarSenhaModal = openAlterarSenhaModal;
+window.alterarSenha = alterarSenha;
+window.toggleBusca = toggleBusca;
+window.loadClientes = loadClientes;
+window.saveCliente = saveCliente;
+window.editCliente = editCliente;
+window.deleteCliente = deleteCliente;
+window.loadVeiculos = loadVeiculos;
+window.saveVeiculo = saveVeiculo;
+window.editVeiculo = editVeiculo;
+window.deleteVeiculo = deleteVeiculo;
+window.loadClientesSelect = loadClientesSelect;
+window.loadVeiculosByCliente = loadVeiculosByCliente;
+window.openConsultaOS = openConsultaOS;
+window.consultarOS = consultarOS;
+window.limparConsultaOS = limparConsultaOS;
+window.visualizarOSDaConsulta = visualizarOSDaConsulta;
+window.loadOrdens = loadOrdens;
+window.saveOS = saveOS;
+window.editOS = editOS;
+window.deleteOS = deleteOS;
+window.viewOS = viewOS;
+window.printOS = printOS;
+window.addServicoRow = addServicoRow;
+window.calcServicoRow = calcServicoRow;
+window.updateOSTotals = updateOSTotals;
+window.loadUsuarios = loadUsuarios;
+window.saveUsuario = saveUsuario;
+window.editUsuario = editUsuario;
+window.deleteUsuario = deleteUsuario;
+window.loadDadosOficina = loadDadosOficina;
+window.saveDadosOficina = saveDadosOficina;
+window.updateFaturamento = updateFaturamento;
+window.exportarOrdensExcel = exportarOrdensExcel;
+window.exportarFaturamentoExcel = exportarFaturamentoExcel;
+window.exportarOrdensPDF = exportarOrdensPDF;
+window.exportarFaturamentoPDF = exportarFaturamentoPDF;
+window.importExcel = importExcel;
+window.updateDashboard = updateDashboard;
+window.fazerBackup = fazerBackup;
+window.restaurarBackup = restaurarBackup;
+window.togglePassword = togglePassword;
+window.logout = logout;
+window.showForgotPassword = showForgotPassword;  
+  
 });
