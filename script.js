@@ -67,7 +67,7 @@ async function loadAllData() {
         if (appData.usuarios.length === 0) {
             const defaultAdmin = { 
                 nome: 'Administrador', 
-                login: 'admin@lourenco.com', // Este será o email no Firebase Auth
+                login: 'ratao.288@gmail.com', // Este será o email no Firebase Auth
                 senha: 'Ale153312*', 
                 tipo: 'admin', 
                 status: 'ativo' 
@@ -185,7 +185,6 @@ function setupLogin() {
             
             // Faz login com email e senha
             await signInWithEmailAndPassword(auth, emailParaLogin, password);
-            
         } catch (error) {
             console.error("Erro no login:", error);
             document.getElementById('loginError').style.display = 'flex';
@@ -790,7 +789,7 @@ function loadUsuarios() {
         tr.innerHTML = `<td>${u.nome}</td><td>${u.login}</td><td>${u.tipo === 'admin' ? 'Administrador' : 'Usuário'}</td>
         <td><span class="status-badge status-${u.status === 'ativo' ? 'concluida' : 'cancelada'}">${u.status}</span></td>
         <td><button class="btn-icon edit" onclick="editUsuario('${u.id}')"><i class="fas fa-edit"></i></button>
-        ${u.login !== 'admin@lourenco.com' ? `<button class="btn-icon delete" onclick="deleteUsuario('${u.id}')"><i class="fas fa-trash"></i></button>` : ''}</td>`;
+        ${u.login !== 'ratao.288@gmail.com' ? `<button class="btn-icon delete" onclick="deleteUsuario('${u.id}')"><i class="fas fa-trash"></i></button>` : ''}</td>`;
         tbody.appendChild(tr);
     });
 }
