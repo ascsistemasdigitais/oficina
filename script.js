@@ -131,10 +131,7 @@ function setupLogin() {
     // Monitora estado de autenticação do Firebase
     onAuthStateChanged(auth, async (user) => {
         if (user) {
-            // Usuário autenticado no Firebase - carrega os dados
             await loadAllData();
-            
-            // Busca o documento do usuário no Firestore pelo email
             const found = appData.usuarios.find(u => u.login === user.email && u.status === 'ativo');
             
             if (found) {
@@ -148,12 +145,10 @@ function setupLogin() {
                 }
                 updateDashboard();
             } else {
-                // Usuário autenticado no Firebase mas não encontrado no sistema
-                alert("Seu email está autenticado, mas não há cadastro ativo no sistema. Contate o administrador.");
+                alert("Usuário não encontrado ou inativo.");
                 await signOut(auth);
             }
         } else {
-            // Usuário deslogado
             currentUser = null;
             document.getElementById('mainSystem').style.display = 'none';
             document.getElementById('loginScreen').style.display = 'flex';
@@ -161,15 +156,36 @@ function setupLogin() {
         }
     });
 
-    // Formulário de login
+    // Formulário de login - ACEITA EMAIL OU NOME DE USUÁRIO
     document.getElementById('loginForm').addEventListener('submit', async function(e) {
         e.preventDefault();
-        const email = document.getElementById('loginUser').value.trim();
+        let loginInput = document.getElementById('loginUser').value.trim();
         const password = document.getElementById('loginPass').value;
         
         try {
-            await signInWithEmailAndPassword(auth, email, password);
-            // O onAuthStateChanged cuidará do resto
+            // Verifica se é um email ou nome de usuário
+            let emailParaLogin = loginInput;
+            
+            // Se não for email (não tem @), busca no Firestore
+            if (!loginInput.includes('@')) {
+                // Busca usuário pelo nome de login
+                const usuario = appData.usuarios.find(u => u.login === loginInput && u.status === 'ativo');
+                
+                if (!usuario) {
+                    throw new Error('Usuário não encontrado');
+                }
+                
+                // Usa o email cadastrado no Firestore
+                emailParaLogin = usuario.login; // O campo 'login' deve ser o email no Firestore
+                
+                if (!emailParaLogin || !emailParaLogin.includes('@')) {
+                    throw new Error('Usuário não tem email válido cadastrado');
+                }
+            }
+            
+            // Faz login com email e senha
+            await signInWithEmailAndPassword(auth, emailParaLogin, password);
+            
         } catch (error) {
             console.error("Erro no login:", error);
             document.getElementById('loginError').style.display = 'flex';
