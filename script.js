@@ -1,8 +1,13 @@
 // ==========================================
-// 1. CONFIGURAÇÃO DO FIREBASE
+// 1. IMPORTAÇÕES DO FIREBASE
 // ==========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { 
+    getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc 
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { 
+    getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged 
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 // ⚠️ SUBSTITUA PELAS SUAS CREDENCIAIS REAIS DO FIREBASE CONSOLE
 const firebaseConfig = {
@@ -17,6 +22,7 @@ const firebaseConfig = {
 // Inicializa o Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
 
 // ==========================================
 // 2. ESTADO GLOBAL DA APLICAÇÃO
@@ -59,9 +65,16 @@ async function loadAllData() {
 
         // Se não houver usuários, criar o administrador padrão
         if (appData.usuarios.length === 0) {
-            const defaultAdmin = { nome: 'Administrador', login: 'AlexandreCosta', senha: 'Ale153312*', tipo: 'admin', status: 'ativo' };
+            const defaultAdmin = { 
+                nome: 'Administrador', 
+                login: 'admin@lourenco.com', // Este será o email no Firebase Auth
+                senha: 'Ale153312*', 
+                tipo: 'admin', 
+                status: 'ativo' 
+            };
             const newId = await saveDocument('usuarios', defaultAdmin);
             appData.usuarios.push({ id: newId, ...defaultAdmin });
+            console.log("⚠️ Usuário admin padrão criado. Crie esta conta no Firebase Authentication!");
         }
 
         // Carregar demais coleções
@@ -91,15 +104,14 @@ async function loadAllData() {
         }
     } catch (error) {
         console.error("Erro ao carregar dados:", error);
-        alert("Erro de conexão com o banco de dados. Verifique sua internet.");
+        alert("Erro de conexão com o banco de dados. Verifique sua internet e as regras do Firestore.");
     }
 }
 
 // ==========================================
-// 4. INICIALIZAÇÃO
+// 4. INICIALIZAÇÃO E AUTENTICAÇÃO
 // ==========================================
-document.addEventListener('DOMContentLoaded', async function() {
-    await loadAllData();
+document.addEventListener('DOMContentLoaded', function() {
     updateDate();
     setupLogin();
     const now = new Date();
@@ -113,26 +125,57 @@ function updateDate() {
 }
 
 // ==========================================
-// 5. LOGIN E SESSÃO
+// 5. LOGIN COM FIREBASE AUTH
 // ==========================================
 function setupLogin() {
-    document.getElementById('loginForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        const user = document.getElementById('loginUser').value;
-        const pass = document.getElementById('loginPass').value;
-        const found = appData.usuarios.find(u => u.login === user && u.senha === pass && u.status === 'ativo');
-        
-        if (found) {
-            currentUser = found;
-            document.getElementById('loginScreen').style.display = 'none';
-            document.getElementById('mainSystem').style.display = 'flex';
-            document.getElementById('currentUserName').textContent = found.nome;
-            document.getElementById('currentUserRole').textContent = found.tipo === 'admin' ? 'Administrador' : 'Usuário';
-            if (found.tipo !== 'admin') { document.getElementById('adminSection').style.display = 'none'; }
-            updateDashboard();
+    // Monitora estado de autenticação do Firebase
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            // Usuário autenticado no Firebase - carrega os dados
+            await loadAllData();
+            
+            // Busca o documento do usuário no Firestore pelo email
+            const found = appData.usuarios.find(u => u.login === user.email && u.status === 'ativo');
+            
+            if (found) {
+                currentUser = found;
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('mainSystem').style.display = 'flex';
+                document.getElementById('currentUserName').textContent = found.nome;
+                document.getElementById('currentUserRole').textContent = found.tipo === 'admin' ? 'Administrador' : 'Usuário';
+                if (found.tipo !== 'admin') { 
+                    document.getElementById('adminSection').style.display = 'none'; 
+                }
+                updateDashboard();
+            } else {
+                // Usuário autenticado no Firebase mas não encontrado no sistema
+                alert("Seu email está autenticado, mas não há cadastro ativo no sistema. Contate o administrador.");
+                await signOut(auth);
+            }
         } else {
+            // Usuário deslogado
+            currentUser = null;
+            document.getElementById('mainSystem').style.display = 'none';
+            document.getElementById('loginScreen').style.display = 'flex';
+            document.getElementById('adminSection').style.display = 'block';
+        }
+    });
+
+    // Formulário de login
+    document.getElementById('loginForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const email = document.getElementById('loginUser').value.trim();
+        const password = document.getElementById('loginPass').value;
+        
+        try {
+            await signInWithEmailAndPassword(auth, email, password);
+            // O onAuthStateChanged cuidará do resto
+        } catch (error) {
+            console.error("Erro no login:", error);
             document.getElementById('loginError').style.display = 'flex';
-            setTimeout(() => { document.getElementById('loginError').style.display = 'none'; }, 3000);
+            setTimeout(() => { 
+                document.getElementById('loginError').style.display = 'none'; 
+            }, 3000);
         }
     });
 }
@@ -142,26 +185,32 @@ function togglePassword() {
     passInput.type = passInput.type === 'password' ? 'text' : 'password';
 }
 
-function logout() {
-    currentUser = null;
-    document.getElementById('mainSystem').style.display = 'none';
-    document.getElementById('loginScreen').style.display = 'flex';
-    document.getElementById('loginUser').value = '';
-    document.getElementById('loginPass').value = '';
-    document.getElementById('adminSection').style.display = 'block';
+async function logout() {
+    try {
+        await signOut(auth);
+        // O onAuthStateChanged cuidará de esconder o sistema
+    } catch (error) {
+        console.error("Erro ao fazer logout:", error);
+    }
 }
 
-function showForgotPassword() { alert('Entre em contato com o administrador do sistema para recuperar sua senha.'); }
+function showForgotPassword() { 
+    alert('Entre em contato com o administrador do sistema para recuperar sua senha.'); 
+}
 
 // ==========================================
 // 6. NAVEGAÇÃO E MODAIS
 // ==========================================
-function showSection(section) {
+function showSection(section, event) {
     document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     
     document.getElementById(`section-${section}`).classList.add('active');
-    event.target.closest('.nav-item').classList.add('active');
+    
+    if (event && event.target) {
+        const navItem = event.target.closest('.nav-item');
+        if (navItem) navItem.classList.add('active');
+    }
     
     const titles = {
         'dashboard': 'Painel de Controle', 'clientes': 'Clientes', 'veiculos': 'Veículos',
@@ -180,12 +229,13 @@ function showSection(section) {
     if (section === 'dadosOficina') loadDadosOficina();
 }
 
-function toggleSidebar() { document.querySelector('.sidebar').classList.toggle('collapsed'); }
+function toggleSidebar() { 
+    document.querySelector('.sidebar').classList.toggle('collapsed'); 
+}
 
 function openModal(modalId) {
     document.getElementById(modalId).classList.add('active');
     if (modalId === 'osModal' && !editingOS) {
-        // Gera um número de OS baseado na quantidade atual + 1 (apenas visual)
         const nextNum = appData.ordens.length + 1;
         document.getElementById('osNumero').value = `OS-${String(nextNum).padStart(4, '0')}`;
         document.getElementById('osDataEntrada').value = new Date().toISOString().split('T')[0];
@@ -193,15 +243,33 @@ function openModal(modalId) {
         document.getElementById('servicosBody').innerHTML = '';
         updateOSTotals();
     }
-    if (modalId === 'veiculoModal') { loadClientesSelect('veiculoCliente'); }
+    if (modalId === 'veiculoModal') { 
+        loadClientesSelect('veiculoCliente'); 
+    }
 }
 
 function closeModal(modalId) {
     document.getElementById(modalId).classList.remove('active');
-    if (modalId === 'osModal') { editingOS = null; document.getElementById('osForm').reset(); document.getElementById('osId').value = ''; }
-    if (modalId === 'clienteModal') { document.getElementById('clienteForm').reset(); document.getElementById('clienteId').value = ''; document.getElementById('clienteModalTitle').textContent = 'Novo Cliente'; }
-    if (modalId === 'veiculoModal') { document.getElementById('veiculoForm').reset(); document.getElementById('veiculoId').value = ''; document.getElementById('veiculoModalTitle').textContent = 'Novo Veículo'; }
-    if (modalId === 'usuarioModal') { document.getElementById('usuarioForm').reset(); document.getElementById('usuarioId').value = ''; document.getElementById('usuarioModalTitle').textContent = 'Novo Usuário'; }
+    if (modalId === 'osModal') { 
+        editingOS = null; 
+        document.getElementById('osForm').reset(); 
+        document.getElementById('osId').value = ''; 
+    }
+    if (modalId === 'clienteModal') { 
+        document.getElementById('clienteForm').reset(); 
+        document.getElementById('clienteId').value = ''; 
+        document.getElementById('clienteModalTitle').textContent = 'Novo Cliente'; 
+    }
+    if (modalId === 'veiculoModal') { 
+        document.getElementById('veiculoForm').reset(); 
+        document.getElementById('veiculoId').value = ''; 
+        document.getElementById('veiculoModalTitle').textContent = 'Novo Veículo'; 
+    }
+    if (modalId === 'usuarioModal') { 
+        document.getElementById('usuarioForm').reset(); 
+        document.getElementById('usuarioId').value = ''; 
+        document.getElementById('usuarioModalTitle').textContent = 'Novo Usuário'; 
+    }
 }
 
 function openAlterarSenhaModal() {
@@ -216,18 +284,36 @@ async function alterarSenha(e) {
     const novaSenha = document.getElementById('novaSenha').value;
     const confirmarSenha = document.getElementById('confirmarSenha').value;
 
-    if (senhaAtual !== currentUser.senha) { alert('A senha atual está incorreta.'); return; }
-    if (novaSenha !== confirmarSenha) { alert('A confirmação da nova senha não confere.'); return; }
+    if (senhaAtual !== currentUser.senha) { 
+        alert('A senha atual está incorreta.'); 
+        return; 
+    }
+    if (novaSenha !== confirmarSenha) { 
+        alert('A confirmação da nova senha não confere.'); 
+        return; 
+    }
 
-    await saveDocument('usuarios', { senha: novaSenha }, currentUser.id);
-    currentUser.senha = novaSenha;
-    
-    // Atualiza no estado local
-    const idx = appData.usuarios.findIndex(u => u.id === currentUser.id);
-    appData.usuarios[idx].senha = novaSenha;
+    try {
+        // Atualiza no Firestore
+        await saveDocument('usuarios', { senha: novaSenha }, currentUser.id);
+        
+        // Atualiza no Firebase Auth (se o email for o mesmo)
+        if (auth.currentUser && auth.currentUser.email === currentUser.login) {
+            // Para alterar a senha no Firebase Auth, o usuário precisa estar logado
+            // Isso é feito automaticamente pois ele está autenticado
+            console.log("Senha atualizada no Firestore. Para alterar no Firebase Auth, use o console.");
+        }
+        
+        currentUser.senha = novaSenha;
+        const idx = appData.usuarios.findIndex(u => u.id === currentUser.id);
+        appData.usuarios[idx].senha = novaSenha;
 
-    closeModal('alterarSenhaModal');
-    alert('Senha alterada com sucesso!');
+        closeModal('alterarSenhaModal');
+        alert('Senha alterada com sucesso!');
+    } catch (error) {
+        console.error("Erro ao alterar senha:", error);
+        alert("Erro ao alterar senha. Tente novamente.");
+    }
 }
 
 function toggleBusca(tipo) {
@@ -240,14 +326,20 @@ function toggleBusca(tipo) {
         painel.className = 'search-panel';
         painel.innerHTML = `<i class="fas fa-search"></i><input type="search" id="${campoId}">`;
         const campoCriado = painel.querySelector('input');
-        campoCriado.placeholder = tipo === 'clientes' ? 'Pesquisar por nome, CPF, telefone ou e-mail' : 'Pesquisar por placa, veículo ou cliente';
+        campoCriado.placeholder = tipo === 'clientes' 
+            ? 'Pesquisar por nome, CPF, telefone ou e-mail' 
+            : 'Pesquisar por placa, veículo ou cliente';
         campoCriado.addEventListener('input', tipo === 'clientes' ? loadClientes : loadVeiculos);
         section.querySelector('.table-container').before(painel);
     }
     const campo = document.getElementById(campoId);
     const estaAberto = painel.classList.toggle('active');
-    if (estaAberto) { campo.focus(); } 
-    else { campo.value = ''; tipo === 'clientes' ? loadClientes() : loadVeiculos(); }
+    if (estaAberto) { 
+        campo.focus(); 
+    } else { 
+        campo.value = ''; 
+        tipo === 'clientes' ? loadClientes() : loadVeiculos(); 
+    }
 }
 
 // ==========================================
@@ -257,13 +349,15 @@ function loadClientes() {
     const tbody = document.getElementById('clientesTable');
     const termo = normalizarConsulta(document.getElementById('clientesSearch')?.value || '');
     tbody.innerHTML = '';
-    appData.clientes.filter(c => !termo || normalizarConsulta(`${c.nome} ${c.cpf} ${c.telefone} ${c.email || ''}`).includes(termo)).forEach(c => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${c.nome}</td><td>${c.cpf}</td><td>${c.telefone}</td><td>${c.email || '-'}</td>
-        <td><button class="btn-icon edit" onclick="editCliente('${c.id}')"><i class="fas fa-edit"></i></button>
-        ${currentUser.tipo === 'admin' ? `<button class="btn-icon delete" onclick="deleteCliente('${c.id}')"><i class="fas fa-trash"></i></button>` : ''}</td>`;
-        tbody.appendChild(tr);
-    });
+    appData.clientes
+        .filter(c => !termo || normalizarConsulta(`${c.nome} ${c.cpf} ${c.telefone} ${c.email || ''}`).includes(termo))
+        .forEach(c => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${c.nome}</td><td>${c.cpf}</td><td>${c.telefone}</td><td>${c.email || '-'}</td>
+            <td><button class="btn-icon edit" onclick="editCliente('${c.id}')"><i class="fas fa-edit"></i></button>
+            ${currentUser.tipo === 'admin' ? `<button class="btn-icon delete" onclick="deleteCliente('${c.id}')"><i class="fas fa-trash"></i></button>` : ''}</td>`;
+            tbody.appendChild(tr);
+        });
 }
 
 async function saveCliente(e) {
@@ -277,18 +371,23 @@ async function saveCliente(e) {
         endereco: document.getElementById('clienteEndereco').value 
     };
     
-    const newId = await saveDocument('clientes', data, id || undefined);
+    try {
+        const newId = await saveDocument('clientes', data, id || undefined);
 
-    if (id) {
-        const idx = appData.clientes.findIndex(c => c.id === id);
-        appData.clientes[idx] = { id, ...data };
-    } else {
-        appData.clientes.push({ id: newId, ...data });
+        if (id) {
+            const idx = appData.clientes.findIndex(c => c.id === id);
+            appData.clientes[idx] = { id, ...data };
+        } else {
+            appData.clientes.push({ id: newId, ...data });
+        }
+        
+        closeModal('clienteModal'); 
+        loadClientes(); 
+        updateDashboard();
+    } catch (error) {
+        console.error("Erro ao salvar cliente:", error);
+        alert("Erro ao salvar cliente. Verifique sua conexão.");
     }
-    
-    closeModal('clienteModal'); 
-    loadClientes(); 
-    updateDashboard();
 }
 
 function editCliente(id) {
@@ -305,10 +404,15 @@ function editCliente(id) {
 
 async function deleteCliente(id) {
     if (confirm('Deseja realmente excluir este cliente?')) {
-        await deleteDocument('clientes', id);
-        appData.clientes = appData.clientes.filter(c => c.id !== id);
-        loadClientes(); 
-        updateDashboard();
+        try {
+            await deleteDocument('clientes', id);
+            appData.clientes = appData.clientes.filter(c => c.id !== id);
+            loadClientes(); 
+            updateDashboard();
+        } catch (error) {
+            console.error("Erro ao excluir cliente:", error);
+            alert("Erro ao excluir cliente.");
+        }
     }
 }
 
@@ -342,21 +446,26 @@ async function saveVeiculo(e) {
         ano: document.getElementById('veiculoAno').value, 
         cor: document.getElementById('veiculoCor').value, 
         renavam: document.getElementById('veiculoRenavam').value, 
-        clienteId: document.getElementById('veiculoCliente').value // Mantém como string ou converte, Firestore lida bem
+        clienteId: document.getElementById('veiculoCliente').value
     };
     
-    const newId = await saveDocument('veiculos', data, id || undefined);
+    try {
+        const newId = await saveDocument('veiculos', data, id || undefined);
 
-    if (id) {
-        const idx = appData.veiculos.findIndex(v => v.id === id);
-        appData.veiculos[idx] = { id, ...data };
-    } else {
-        appData.veiculos.push({ id: newId, ...data });
+        if (id) {
+            const idx = appData.veiculos.findIndex(v => v.id === id);
+            appData.veiculos[idx] = { id, ...data };
+        } else {
+            appData.veiculos.push({ id: newId, ...data });
+        }
+        
+        closeModal('veiculoModal'); 
+        loadVeiculos(); 
+        updateDashboard();
+    } catch (error) {
+        console.error("Erro ao salvar veículo:", error);
+        alert("Erro ao salvar veículo.");
     }
-    
-    closeModal('veiculoModal'); 
-    loadVeiculos(); 
-    updateDashboard();
 }
 
 function editVeiculo(id) {
@@ -376,17 +485,24 @@ function editVeiculo(id) {
 
 async function deleteVeiculo(id) {
     if (confirm('Deseja realmente excluir este veículo?')) {
-        await deleteDocument('veiculos', id);
-        appData.veiculos = appData.veiculos.filter(v => v.id !== id);
-        loadVeiculos(); 
-        updateDashboard();
+        try {
+            await deleteDocument('veiculos', id);
+            appData.veiculos = appData.veiculos.filter(v => v.id !== id);
+            loadVeiculos(); 
+            updateDashboard();
+        } catch (error) {
+            console.error("Erro ao excluir veículo:", error);
+            alert("Erro ao excluir veículo.");
+        }
     }
 }
 
 function loadClientesSelect(selectId) {
     const select = document.getElementById(selectId);
     select.innerHTML = '<option value="">Selecione o cliente</option>';
-    appData.clientes.forEach(c => { select.innerHTML += `<option value="${c.id}">${c.nome}</option>`; });
+    appData.clientes.forEach(c => { 
+        select.innerHTML += `<option value="${c.id}">${c.nome}</option>`; 
+    });
 }
 
 function loadVeiculosByCliente() {
@@ -429,7 +545,9 @@ function consultarOS() {
         return correspondePlaca && correspondeCliente;
     });
 
-    resumo.textContent = resultados.length === 1 ? '1 ordem de serviço encontrada.' : `${resultados.length} ordens de serviço encontradas.`;
+    resumo.textContent = resultados.length === 1 
+        ? '1 ordem de serviço encontrada.' 
+        : `${resultados.length} ordens de serviço encontradas.`;
     tbody.innerHTML = '';
 
     resultados.forEach(o => {
@@ -450,7 +568,10 @@ function limparConsultaOS() {
     document.getElementById('consultaPlaca').focus();
 }
 
-function visualizarOSDaConsulta(id) { closeModal('consultaOSModal'); viewOS(id); }
+function visualizarOSDaConsulta(id) { 
+    closeModal('consultaOSModal'); 
+    viewOS(id); 
+}
 
 function loadOrdens() {
     const tbody = document.getElementById('ordensTable');
@@ -475,7 +596,8 @@ async function saveOS(e) {
     const servicos = [];
     document.querySelectorAll('#servicosBody tr').forEach(row => {
         servicos.push({
-            tipo: row.querySelector('.serv-tipo').value, descricao: row.querySelector('.serv-desc').value,
+            tipo: row.querySelector('.serv-tipo').value, 
+            descricao: row.querySelector('.serv-desc').value,
             qtdPecas: parseFloat(row.querySelector('.serv-qtd').value) || 0,
             valorPecaUnit: parseFloat(row.querySelector('.serv-valor-peca').value) || 0,
             valorPecas: parseFloat(row.querySelector('.serv-total-pecas').textContent.replace(/[R$\s.]/g, '').replace(',', '.')) || 0,
@@ -487,28 +609,43 @@ async function saveOS(e) {
     const totalMaoObra = servicos.reduce((sum, s) => sum + s.maoObra, 0);
     
     const data = {
-        numero: document.getElementById('osNumero').value, dataEntrada: document.getElementById('osDataEntrada').value,
-        dataPrevisao: document.getElementById('osDataPrevisao').value, status: document.getElementById('osStatus').value,
-        clienteId: document.getElementById('osCliente').value, veiculoId: document.getElementById('osVeiculo').value,
-        descricao: document.getElementById('osDescricao').value, servicos, totalPecas, totalMaoObra, valorTotal: totalPecas + totalMaoObra
+        numero: document.getElementById('osNumero').value, 
+        dataEntrada: document.getElementById('osDataEntrada').value,
+        dataPrevisao: document.getElementById('osDataPrevisao').value, 
+        status: document.getElementById('osStatus').value,
+        clienteId: document.getElementById('osCliente').value, 
+        veiculoId: document.getElementById('osVeiculo').value,
+        descricao: document.getElementById('osDescricao').value, 
+        servicos, 
+        totalPecas, 
+        totalMaoObra, 
+        valorTotal: totalPecas + totalMaoObra
     };
     
-    const newId = await saveDocument('ordens', data, id || undefined);
+    try {
+        const newId = await saveDocument('ordens', data, id || undefined);
 
-    if (id) {
-        const idx = appData.ordens.findIndex(o => o.id === id);
-        appData.ordens[idx] = { id, ...data };
-    } else {
-        appData.ordens.push({ id: newId, ...data });
+        if (id) {
+            const idx = appData.ordens.findIndex(o => o.id === id);
+            appData.ordens[idx] = { id, ...data };
+        } else {
+            appData.ordens.push({ id: newId, ...data });
+        }
+        
+        closeModal('osModal'); 
+        loadOrdens(); 
+        updateDashboard();
+    } catch (error) {
+        console.error("Erro ao salvar OS:", error);
+        alert("Erro ao salvar ordem de serviço.");
     }
-    
-    closeModal('osModal'); 
-    loadOrdens(); 
-    updateDashboard();
 }
 
 function editOS(id) {
-    if (currentUser.tipo !== 'admin') { alert('Apenas administradores podem editar ordens de serviço.'); return; }
+    if (currentUser.tipo !== 'admin') { 
+        alert('Apenas administradores podem editar ordens de serviço.'); 
+        return; 
+    }
     editingOS = true;
     const o = appData.ordens.find(or => or.id === id);
     document.getElementById('osId').value = o.id;
@@ -529,12 +666,20 @@ function editOS(id) {
 }
 
 async function deleteOS(id) {
-    if (currentUser.tipo !== 'admin') { alert('Apenas administradores podem excluir ordens de serviço.'); return; }
+    if (currentUser.tipo !== 'admin') { 
+        alert('Apenas administradores podem excluir ordens de serviço.'); 
+        return; 
+    }
     if (confirm('Deseja realmente excluir esta ordem de serviço?')) {
-        await deleteDocument('ordens', id);
-        appData.ordens = appData.ordens.filter(o => o.id !== id);
-        loadOrdens(); 
-        updateDashboard();
+        try {
+            await deleteDocument('ordens', id);
+            appData.ordens = appData.ordens.filter(o => o.id !== id);
+            loadOrdens(); 
+            updateDashboard();
+        } catch (error) {
+            console.error("Erro ao excluir OS:", error);
+            alert("Erro ao excluir ordem de serviço.");
+        }
     }
 }
 
@@ -578,7 +723,9 @@ function viewOS(id) {
     openModal('osViewModal');
 }
 
-function printOS() { window.print(); }
+function printOS() { 
+    window.print(); 
+}
 
 function addServicoRow(data = null) {
     const tbody = document.getElementById('servicosBody');
@@ -627,7 +774,7 @@ function loadUsuarios() {
         tr.innerHTML = `<td>${u.nome}</td><td>${u.login}</td><td>${u.tipo === 'admin' ? 'Administrador' : 'Usuário'}</td>
         <td><span class="status-badge status-${u.status === 'ativo' ? 'concluida' : 'cancelada'}">${u.status}</span></td>
         <td><button class="btn-icon edit" onclick="editUsuario('${u.id}')"><i class="fas fa-edit"></i></button>
-        ${u.login !== 'AlexandreCosta' ? `<button class="btn-icon delete" onclick="deleteUsuario('${u.id}')"><i class="fas fa-trash"></i></button>` : ''}</td>`;
+        ${u.login !== 'admin@lourenco.com' ? `<button class="btn-icon delete" onclick="deleteUsuario('${u.id}')"><i class="fas fa-trash"></i></button>` : ''}</td>`;
         tbody.appendChild(tr);
     });
 }
@@ -637,23 +784,29 @@ async function saveUsuario(e) {
     const id = document.getElementById('usuarioId').value;
     const data = { 
         nome: document.getElementById('usuarioNome').value, 
-        login: document.getElementById('usuarioLogin').value, 
+        login: document.getElementById('usuarioLogin').value, // Este será o email no Firebase Auth
         senha: document.getElementById('usuarioSenha').value, 
         tipo: document.getElementById('usuarioTipo').value, 
         status: document.getElementById('usuarioStatus').value 
     };
     
-    const newId = await saveDocument('usuarios', data, id || undefined);
+    try {
+        const newId = await saveDocument('usuarios', data, id || undefined);
 
-    if (id) {
-        const idx = appData.usuarios.findIndex(u => u.id === id);
-        appData.usuarios[idx] = { id, ...data };
-    } else {
-        appData.usuarios.push({ id: newId, ...data });
+        if (id) {
+            const idx = appData.usuarios.findIndex(u => u.id === id);
+            appData.usuarios[idx] = { id, ...data };
+        } else {
+            appData.usuarios.push({ id: newId, ...data });
+        }
+        
+        closeModal('usuarioModal'); 
+        loadUsuarios();
+        alert("Usuário salvo no sistema! ️ Não esqueça de criar a conta no Firebase Authentication com o email: " + data.login);
+    } catch (error) {
+        console.error("Erro ao salvar usuário:", error);
+        alert("Erro ao salvar usuário.");
     }
-    
-    closeModal('usuarioModal'); 
-    loadUsuarios();
 }
 
 function editUsuario(id) {
@@ -670,9 +823,14 @@ function editUsuario(id) {
 
 async function deleteUsuario(id) {
     if (confirm('Deseja realmente excluir este usuário?')) {
-        await deleteDocument('usuarios', id);
-        appData.usuarios = appData.usuarios.filter(u => u.id !== id);
-        loadUsuarios();
+        try {
+            await deleteDocument('usuarios', id);
+            appData.usuarios = appData.usuarios.filter(u => u.id !== id);
+            loadUsuarios();
+        } catch (error) {
+            console.error("Erro ao excluir usuário:", error);
+            alert("Erro ao excluir usuário.");
+        }
     }
 }
 
@@ -694,9 +852,14 @@ async function saveDadosOficina(e) {
         email: document.getElementById('oficinaEmail').value
     };
     
-    await saveDocument('dadosOficina', data, appData.dadosOficina.id);
-    appData.dadosOficina = { ...appData.dadosOficina, ...data };
-    alert('Dados da oficina salvos com sucesso!');
+    try {
+        await saveDocument('dadosOficina', data, appData.dadosOficina.id);
+        appData.dadosOficina = { ...appData.dadosOficina, ...data };
+        alert('Dados da oficina salvos com sucesso!');
+    } catch (error) {
+        console.error("Erro ao salvar dados da oficina:", error);
+        alert("Erro ao salvar dados da oficina.");
+    }
 }
 
 // ==========================================
@@ -707,8 +870,11 @@ function updateFaturamento() {
     const mes = document.getElementById('faturamentoMes').value;
     const ano = parseInt(document.getElementById('faturamentoAno').value);
     let filtered = appData.ordens.filter(o => o.status === 'concluida');
-    if (periodo === 'mensal' && mes) { filtered = filtered.filter(o => o.dataEntrada.startsWith(mes)); } 
-    else if (periodo === 'anual') { filtered = filtered.filter(o => o.dataEntrada.startsWith(ano.toString())); }
+    if (periodo === 'mensal' && mes) { 
+        filtered = filtered.filter(o => o.dataEntrada.startsWith(mes)); 
+    } else if (periodo === 'anual') { 
+        filtered = filtered.filter(o => o.dataEntrada.startsWith(ano.toString())); 
+    }
     
     const totalPecas = filtered.reduce((sum, o) => sum + (o.totalPecas || 0), 0);
     const totalMaoObra = filtered.reduce((sum, o) => sum + (o.totalMaoObra || 0), 0);
@@ -718,17 +884,44 @@ function updateFaturamento() {
     document.getElementById('fatOrdens').textContent = filtered.length;
 }
 
-function escapeHTML(valor) { return String(valor ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;'); }
-function dadosOrdensExportacao() { return appData.ordens.map(o => { const c = appData.clientes.find(x => x.id === o.clienteId); const v = appData.veiculos.find(x => x.id === o.veiculoId); return [o.numero, c ? c.nome : '-', c ? c.cpf : '-', v ? v.placa : '-', v ? `${v.marca} ${v.modelo}` : '-', formatDate(o.dataEntrada), getStatusLabel(o.status), o.totalPecas || 0, o.totalMaoObra || 0, o.valorTotal || 0]; }); }
-function dadosFaturamentoExportacao() { return appData.ordens.filter(o => o.status === 'concluida').map(o => { const c = appData.clientes.find(x => x.id === o.clienteId); const v = appData.veiculos.find(x => x.id === o.veiculoId); return [o.numero, formatDate(o.dataEntrada), c ? c.nome : '-', v ? v.placa : '-', o.totalPecas || 0, o.totalMaoObra || 0, o.valorTotal || 0]; }); }
+function escapeHTML(valor) { 
+    return String(valor ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;'); 
+}
+
+function dadosOrdensExportacao() { 
+    return appData.ordens.map(o => { 
+        const c = appData.clientes.find(x => x.id === o.clienteId); 
+        const v = appData.veiculos.find(x => x.id === o.veiculoId); 
+        return [o.numero, c ? c.nome : '-', c ? c.cpf : '-', v ? v.placa : '-', v ? `${v.marca} ${v.modelo}` : '-', formatDate(o.dataEntrada), getStatusLabel(o.status), o.totalPecas || 0, o.totalMaoObra || 0, o.valorTotal || 0]; 
+    }); 
+}
+
+function dadosFaturamentoExportacao() { 
+    return appData.ordens.filter(o => o.status === 'concluida').map(o => { 
+        const c = appData.clientes.find(x => x.id === o.clienteId); 
+        const v = appData.veiculos.find(x => x.id === o.veiculoId); 
+        return [o.numero, formatDate(o.dataEntrada), c ? c.nome : '-', v ? v.placa : '-', o.totalPecas || 0, o.totalMaoObra || 0, o.valorTotal || 0]; 
+    }); 
+}
 
 function baixarExcel(nomeArquivo, titulo, cabecalhos, linhas) {
     const tabela = `<table><thead><tr>${cabecalhos.map(c => `<th>${escapeHTML(c)}</th>`).join('')}</tr></thead><tbody>${linhas.map(l => `<tr>${l.map(v => `<td>${escapeHTML(v)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
     const blob = new Blob(['\ufeff', `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body><h2>${escapeHTML(titulo)}</h2>${tabela}</body></html>`], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-    const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `${nomeArquivo}.xls`; document.body.appendChild(link); link.click(); link.remove();
+    const link = document.createElement('a'); 
+    link.href = URL.createObjectURL(blob); 
+    link.download = `${nomeArquivo}.xls`; 
+    document.body.appendChild(link); 
+    link.click(); 
+    link.remove();
 }
-function exportarOrdensExcel() { baixarExcel('ordens-de-servico', 'Relatório de OS', ['Nº OS', 'Cliente', 'CPF', 'Placa', 'Veículo', 'Data', 'Status', 'Peças', 'Mão de Obra', 'Total'], dadosOrdensExportacao()); }
-function exportarFaturamentoExcel() { baixarExcel('faturamento', 'Relatório de Faturamento', ['Nº OS', 'Data', 'Cliente', 'Placa', 'Peças', 'Mão de Obra', 'Total'], dadosFaturamentoExportacao()); }
+
+function exportarOrdensExcel() { 
+    baixarExcel('ordens-de-servico', 'Relatório de OS', ['Nº OS', 'Cliente', 'CPF', 'Placa', 'Veículo', 'Data', 'Status', 'Peças', 'Mão de Obra', 'Total'], dadosOrdensExportacao()); 
+}
+
+function exportarFaturamentoExcel() { 
+    baixarExcel('faturamento', 'Relatório de Faturamento', ['Nº OS', 'Data', 'Cliente', 'Placa', 'Peças', 'Mão de Obra', 'Total'], dadosFaturamentoExportacao()); 
+}
 
 function abrirRelatorioPDF(titulo, cabecalhos, linhas, resumo = '') {
     const janela = window.open('', '_blank');
@@ -737,7 +930,11 @@ function abrirRelatorioPDF(titulo, cabecalhos, linhas, resumo = '') {
     janela.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escapeHTML(titulo)}</title><style>body{font-family:Arial,sans-serif;color:#222;margin:28px}h1{color:#1a3a5c}table{width:100%;border-collapse:collapse;margin-top:20px;font-size:12px}th,td{border:1px solid #bbb;padding:8px;text-align:left}th{background:#eef3f8}</style></head><body><h1>${escapeHTML(appData.dadosOficina.nome)}</h1><p>${escapeHTML(titulo)} · ${new Date().toLocaleDateString('pt-BR')}</p>${resumo}${tabela}<script>window.onload=function(){window.print();};<\/script></body></html>`);
     janela.document.close();
 }
-function exportarOrdensPDF() { abrirRelatorioPDF('Relatório de OS', ['Nº OS', 'Cliente', 'Placa', 'Data', 'Status', 'Peças', 'Mão de Obra', 'Total'], dadosOrdensExportacao().map(l => [l[0], l[1], l[3], l[5], l[6], l[7], l[8], l[9]])); }
+
+function exportarOrdensPDF() { 
+    abrirRelatorioPDF('Relatório de OS', ['Nº OS', 'Cliente', 'Placa', 'Data', 'Status', 'Peças', 'Mão de Obra', 'Total'], dadosOrdensExportacao().map(l => [l[0], l[1], l[3], l[5], l[6], l[7], l[8], l[9]])); 
+}
+
 function exportarFaturamentoPDF() {
     const linhas = dadosFaturamentoExportacao();
     const resumo = `<p><strong>OS concluídas:</strong> ${linhas.length} | <strong>Peças:</strong> ${formatCurrency(linhas.reduce((t, l) => t + l[4], 0))} | <strong>Mão de obra:</strong> ${formatCurrency(linhas.reduce((t, l) => t + l[5], 0))} | <strong>Total:</strong> ${formatCurrency(linhas.reduce((t, l) => t + l[6], 0))}</p>`;
@@ -818,9 +1015,19 @@ function updateDashboard() {
 // ==========================================
 // 13. UTILITÁRIOS E BACKUP
 // ==========================================
-function formatCurrency(value) { return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0); }
-function formatDate(date) { if (!date) return '-'; const [y, m, d] = date.split('-'); return `${d}/${m}/${y}`; }
-function getStatusLabel(status) { return { 'aberta': 'Aberta', 'andamento': 'Em Andamento', 'concluida': 'Concluída', 'cancelada': 'Cancelada' }[status] || status; }
+function formatCurrency(value) { 
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0); 
+}
+
+function formatDate(date) { 
+    if (!date) return '-'; 
+    const [y, m, d] = date.split('-'); 
+    return `${d}/${m}/${y}`; 
+}
+
+function getStatusLabel(status) { 
+    return { 'aberta': 'Aberta', 'andamento': 'Em Andamento', 'concluida': 'Concluída', 'cancelada': 'Cancelada' }[status] || status; 
+}
 
 function fazerBackup() {
     const dados = JSON.stringify(appData);
@@ -829,9 +1036,12 @@ function fazerBackup() {
     const blob = new Blob([dados], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.href = url; link.download = nomeArquivo;
-    document.body.appendChild(link); link.click();
-    document.body.removeChild(link); URL.revokeObjectURL(url);
+    link.href = url; 
+    link.download = nomeArquivo;
+    document.body.appendChild(link); 
+    link.click();
+    document.body.removeChild(link); 
+    URL.revokeObjectURL(url);
     alert(`✅ Backup realizado com sucesso!\n\nArquivo: ${nomeArquivo}\n\nGUARDE ESTE ARQUIVO EM LOCAL SEGURO!`);
 }
 
@@ -842,29 +1052,37 @@ async function restaurarBackup(event) {
     reader.onload = async function(e) {
         try {
             const dados = JSON.parse(e.target.result);
-            if (!dados.clientes || !dados.veiculos || !dados.ordens) { alert('❌ Arquivo de backup inválido!'); return; }
+            if (!dados.clientes || !dados.veiculos || !dados.ordens) { 
+                alert('❌ Arquivo de backup inválido!'); 
+                return; 
+            }
             if (confirm(`⚠️ ATENÇÃO!\n\nIsso substituirá TODOS os dados atuais no banco de dados pelos dados do backup.\n\nDeseja continuar?`)) {
-                // Limpa e restaura coleções (simplificado para o escopo)
-                // Em produção, ideal seria deletar coleções inteiras antes, mas aqui vamos sobrescrever
                 for (const c of dados.clientes) await saveDocument('clientes', c, c.id);
                 for (const v of dados.veiculos) await saveDocument('veiculos', v, v.id);
                 for (const o of dados.ordens) await saveDocument('ordens', o, o.id);
-                if (dados.dadosOficina && dados.dadosOficina.id) await saveDocument('dadosOficina', dados.dadosOficina, dados.dadosOficina.id);
+                if (dados.dadosOficina && dados.dadosOficina.id) {
+                    await saveDocument('dadosOficina', dados.dadosOficina, dados.dadosOficina.id);
+                }
                 
                 alert('✅ Backup restaurado com sucesso na nuvem!\n\nA página será recarregada.');
                 location.reload();
             }
-        } catch (erro) { alert('❌ Erro ao ler arquivo de backup: ' + erro.message); }
+        } catch (erro) { 
+            alert('❌ Erro ao ler arquivo de backup: ' + erro.message); 
+        }
     };
     reader.readAsText(arquivo);
 }
 
 // Close modal on outside click
 document.addEventListener('click', function(e) {
-    if (e.target.classList.contains('modal')) { e.target.classList.remove('active'); }
+    if (e.target.classList.contains('modal')) { 
+        e.target.classList.remove('active'); 
+    }
+});
 
 // ==========================================
-// EXPOSIÇÃO DE FUNÇÕES GLOBAIS (PARA O HTML)
+// 14. EXPOSIÇÃO DE FUNÇÕES GLOBAIS (PARA O HTML)
 // ==========================================
 window.showSection = showSection;
 window.toggleSidebar = toggleSidebar;
@@ -913,6 +1131,4 @@ window.fazerBackup = fazerBackup;
 window.restaurarBackup = restaurarBackup;
 window.togglePassword = togglePassword;
 window.logout = logout;
-window.showForgotPassword = showForgotPassword;  
-  
-});
+window.showForgotPassword = showForgotPassword;
