@@ -159,7 +159,6 @@
 
         <!-- CONTEÚDO PRINCIPAL -->
         <main class="main-content">
-            <!-- HEADER -->
             <header class="content-header">
                 <div class="header-left">
                     <h2 id="pageTitle">Painel de Controle</h2>
@@ -232,7 +231,7 @@
                 </div>
                 <div class="table-container">
                     <table class="data-table">
-                        <thead><tr><th>ID</th><th>Nome</th><th>CPF</th><th>Telefone</th><th>Email</th><th>Ações</th></tr></thead>
+                        <thead><tr><th>Nome</th><th>CPF</th><th>Telefone</th><th>Email</th><th>Ações</th></tr></thead>
                         <tbody id="clientesTable"></tbody>
                     </table>
                 </div>
@@ -253,7 +252,7 @@
                 </div>
                 <div class="table-container">
                     <table class="data-table">
-                        <thead><tr><th>ID</th><th>Placa</th><th>Marca/Modelo</th><th>Ano</th><th>Cor</th><th>Cliente</th><th>Ações</th></tr></thead>
+                        <thead><tr><th>Placa</th><th>Marca/Modelo</th><th>Ano</th><th>Cor</th><th>Cliente</th><th>Ações</th></tr></thead>
                         <tbody id="veiculosTable"></tbody>
                     </table>
                 </div>
@@ -357,7 +356,7 @@
                 </div>
                 <div class="table-container">
                     <table class="data-table">
-                        <thead><tr><th>ID</th><th>Nome</th><th>Usuário</th><th>Tipo</th><th>Status</th><th>Ações</th></tr></thead>
+                        <thead><tr><th>Nome</th><th>Usuário</th><th>Tipo</th><th>Status</th><th>Ações</th></tr></thead>
                         <tbody id="usuariosTable"></tbody>
                     </table>
                 </div>
@@ -410,7 +409,7 @@
                         </label>
                         <p class="backup-warning">
                             <i class="fas fa-exclamation-triangle"></i> 
-                            <span>Isso substituirá TODOS os dados atuais!</span>
+                            <span>Isso substituirá TODOS os dados atuais no banco de dados!</span>
                         </p>
                     </div>
                 </div>
@@ -421,8 +420,7 @@
                         <li>Faça backup <strong>semanalmente</strong> ou após cada dia de trabalho intenso.</li>
                         <li>Guarde cópias em <strong>múltiplos locais</strong> (computador + Pen Drive + nuvem).</li>
                         <li>Nomeie os arquivos com datas (ex: <code>backup-2026-01-15.json</code>) para facilitar a organização.</li>
-                        <li>Teste o processo de restauração periodicamente em um computador de teste.</li>
-                        <li><strong>CRÍTICO:</strong> Se limpar o cache/histórico do navegador, perderá todos os dados se não tiver este backup!</li>
+                        <li><strong>CRÍTICO:</strong> Este backup agora salva os dados da nuvem, garantindo que você tenha uma cópia de segurança externa.</li>
                     </ul>
                 </div>
             </section>
@@ -623,6 +621,7 @@
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <!-- IMPORTANTE: type="module" é obrigatório para o Firebase funcionar -->
+    <script type="module" src="script.js"></script>
 </body>
 </html>
