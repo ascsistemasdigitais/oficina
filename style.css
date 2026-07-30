@@ -53,7 +53,7 @@ body { font-family: 'Inter', sans-serif; background: #f0f2f5; color: var(--dark)
 .login-info p { margin: 8px 0; }
 .login-info i { margin-right: 8px; color: var(--secondary); }
 
-.login-right { width: 450px; background: rgb(255, 255, 255); display: flex; align-items: center; justify-content: center; padding: 40px; }
+.login-right { width: 650px; background: rgb(255, 255, 255); display: flex; align-items: center; justify-content: center; padding: 40px; }
 .login-form-container { width: 100%; max-width: 380px; }
 .login-header { margin-bottom: 30px; }
 .login-header h2 { font-size: 1.8rem; color: var(--primary-dark); margin-bottom: 8px; }
