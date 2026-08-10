@@ -53,7 +53,7 @@ body { font-family: 'Inter', sans-serif; background: #f0f2f5; color: var(--dark)
 .login-info p { margin: 8px 0; }
 .login-info i { margin-right: 8px; color: var(--secondary); }
 
-.login-right { width: 650px; background: rgb(255, 255, 255); display: flex; align-items: center; justify-content: center; padding: 40px; }
+.login-right{ width: 605px; background: rgb(255, 255, 255); display: flex; align-items: center; justify-content: center; padding: 40px; }
 .login-form-container { width: 100%; max-width: 380px; }
 .login-header { margin-bottom: 30px; }
 .login-header h2 { font-size: 1.8rem; color: var(--primary-dark); margin-bottom: 8px; }
@@ -318,9 +318,7 @@ body { font-family: 'Inter', sans-serif; background: #f0f2f5; color: var(--dark)
 .os-print-total { text-align: right; padding: 20px; background: #f8f9fa; border-radius: var(--radius); }
 .os-print-total .total-final { font-size: 1.3rem; color: var(--primary-dark); font-weight: 700; }
 
-/* ========================================= */
-/* BACKUP E RESTAURAÇÃO (FORA DO PRINT)      */
-/* ========================================= */
+/* BACKUP E RESTAURAÇÃO */
 .backup-container {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
@@ -490,3 +488,187 @@ body { font-family: 'Inter', sans-serif; background: #f0f2f5; color: var(--dark)
 ::-webkit-scrollbar-track { background: var(--light); }
 ::-webkit-scrollbar-thumb { background: var(--gray); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+
+/* FOOTER LINK */
+.footer-link {
+    color: var(--gray);
+    text-decoration: none;
+    font-size: 1.0rem;
+    transition: var(--transition);
+    cursor: pointer;
+}
+
+.footer-link:hover {
+    color: var(--primary);
+    text-decoration: underline;
+}
+
+/* AJUSTE: SIDEBAR RECOLHIDA - ÁREA DO USUÁRIO */
+.sidebar.collapsed .sidebar-user {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 5px;
+    gap: 10px;
+}
+
+.sidebar.collapsed .sidebar-user .user-avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.sidebar.collapsed .sidebar-user .user-settings {
+    margin: 0 !important;
+}
+
+/* LOGS DO SISTEMA */
+.logs-filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 15px;
+    background: white;
+    padding: 20px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    margin-bottom: 25px;
+}
+.logs-filters .form-group { margin-bottom: 0; }
+.logs-filters label { font-size: 0.8rem; }
+
+.log-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.log-badge-LOGIN        { background: #e8f5e9; color: #2e7d32; }
+.log-badge-LOGOUT       { background: #ffebee; color: #c62828; }
+.log-badge-CRIAR        { background: #e3f2fd; color: #1565c0; }
+.log-badge-EDITAR       { background: #fff3e0; color: #e65100; }
+.log-badge-EXCLUIR      { background: #ffebee; color: #c62828; }
+.log-badge-ALTERAR_SENHA{ background: #f3e5f5; color: #6a1b9a; }
+.log-badge-BACKUP       { background: #e0f2f1; color: #00695c; }
+.log-badge-RESTAURAR    { background: #fff8e1; color: #f57c00; }
+.log-badge-IMPORTAR     { background: #e1f5fe; color: #0277bd; }
+.log-badge-EXPORTAR     { background: #f1f8e9; color: #558b2f; }
+.log-badge-LIMPAR       { background: #eceff1; color: #455a64; }
+
+.entidade-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: #f5f5f5;
+    color: #37474f;
+    border-left: 3px solid var(--primary);
+}
+
+.log-detalhes {
+    font-size: 0.88rem;
+    color: var(--gray);
+    max-width: 400px;
+    word-wrap: break-word;
+}
+
+#logsTable tr { transition: var(--transition); }
+#logsTable tr:hover { background: rgba(26, 58, 92, 0.04); }
+
+@media (max-width: 768px) {
+    .logs-filters { grid-template-columns: 1fr; }
+}
+
+/* ========================================== */
+/* TIPO DE PESSOA (RADIOS CUSTOMIZADOS)       */
+/* ========================================== */
+.tipo-pessoa-container {
+    display: flex;
+    gap: 15px;
+    margin-top: 5px;
+}
+
+.radio-custom {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    position: relative;
+}
+
+.radio-custom input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.radio-label {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border: 2px solid var(--gray-light);
+    border-radius: var(--radius);
+    background: white;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--gray);
+    transition: var(--transition);
+    cursor: pointer;
+}
+
+.radio-label i {
+    font-size: 1.1rem;
+    color: var(--gray);
+    transition: var(--transition);
+}
+
+.radio-custom input[type="radio"]:checked + .radio-label {
+    border-color: var(--primary);
+    background: #e3f2fd;
+    color: var(--primary-dark);
+    box-shadow: 0 2px 8px rgba(26, 58, 92, 0.15);
+}
+
+.radio-custom input[type="radio"]:checked + .radio-label i {
+    color: var(--primary);
+}
+
+.radio-label:hover {
+    border-color: var(--primary-light);
+    background: #f8f9fa;
+}
+
+/* Badge de Tipo de Cliente na tabela */
+.tipo-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.tipo-badge-fisica {
+    background: #e3f2fd;
+    color: #1565c0;
+}
+
+.tipo-badge-juridica {
+    background: #fff3e0;
+    color: #e65100;
+}
+
+@media (max-width: 768px) {
+    .tipo-pessoa-container {
+        flex-direction: column;
+    }
+}
