@@ -30,7 +30,7 @@
             </div>
             <div class="login-info">
                 <p><i class="fas fa-map-marker-alt"></i> Rua Arnaldo Bonaventura, 649 - Cidade Tiradentes - SP</p>
-                <p><i class="fas fa-phone"></i> (11) 94925-7896</p>
+                <p><i class="fas fa-phone"></i> (11) 96400-9152</p>
                 <p><i class="fas fa-globe"></i> https://lourencomecanica.github.io/auto</p>
             </div>
         </div>
@@ -70,7 +70,7 @@
                 </button>
             </form>
             <div class="login-footer">
-                ASCTech - Sistemas © 2026
+                <a href="https://www.globo.com" target="_blank" class="footer-link">ASC Digital © 2026</a>
             </div>
         </div>
     </div>
@@ -123,6 +123,9 @@
                 <span class="nav-section-title">Administração</span>
                 <a href="#" class="nav-item" onclick="showSection('usuarios', event)">
                     <i class="fas fa-user-shield"></i><span>Usuários do Sistema</span>
+                </a>
+                <a href="#" class="nav-item" onclick="showSection('logs', event)">
+                    <i class="fas fa-clipboard-list"></i><span>Logs do Sistema</span>
                 </a>
             </div>
             <div class="nav-section">
@@ -228,7 +231,12 @@
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>Nome</th><th>CPF</th><th>Telefone</th><th>Email</th><th>Ações</th>
+                            <th>Nome / Razão Social</th>
+                            <th>Tipo</th>
+                            <th>Documento</th>
+                            <th>Telefone</th>
+                            <th>Email</th>
+                            <th>Ações</th>
                         </tr>
                     </thead>
                     <tbody id="clientesTable"></tbody>
@@ -406,6 +414,90 @@
             </div>
         </section>
 
+        <!-- 📋 LOGS DO SISTEMA -->
+        <section id="section-logs" class="content-section">
+            <div class="section-header">
+                <h3>📋 Logs de Auditoria do Sistema</h3>
+                <div class="section-actions">
+                    <button class="btn-secondary" onclick="exportarLogsExcel()">
+                        <i class="fas fa-file-excel"></i> Exportar Excel
+                    </button>
+                    <button class="btn-icon delete" onclick="limparLogs()" title="Limpar todos os logs">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div style="background: #e3f2fd; border-left: 4px solid #1976d2; padding: 15px; border-radius: var(--radius); margin-bottom: 20px; display: flex; gap: 10px; align-items: flex-start;">
+                <i class="fas fa-info-circle" style="color: #1976d2; font-size: 1.2rem; margin-top: 2px;"></i>
+                <div style="font-size: 0.9rem; color: #1565c0;">
+                    <strong>Auditoria:</strong> Este histórico registra todas as ações realizadas pelos usuários. Apenas administradores têm acesso a esta tela. Total de registros: <strong id="totalLogs">0</strong>
+                </div>
+            </div>
+
+            <!-- FILTROS -->
+            <div class="logs-filters">
+                <div class="form-group">
+                    <label>Usuário</label>
+                    <select id="filtroLogUsuario" onchange="loadLogs()">
+                        <option value="">Todos os usuários</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Ação</label>
+                    <select id="filtroLogAcao" onchange="loadLogs()">
+                        <option value="">Todas as ações</option>
+                        <option value="LOGIN">Login</option>
+                        <option value="LOGOUT">Logout</option>
+                        <option value="CRIAR">Criar</option>
+                        <option value="EDITAR">Editar</option>
+                        <option value="EXCLUIR">Excluir</option>
+                        <option value="ALTERAR_SENHA">Alterar Senha</option>
+                        <option value="BACKUP">Backup</option>
+                        <option value="RESTAURAR">Restaurar</option>
+                        <option value="IMPORTAR">Importar</option>
+                        <option value="EXPORTAR">Exportar</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Entidade</label>
+                    <select id="filtroLogEntidade" onchange="loadLogs()">
+                        <option value="">Todas as entidades</option>
+                        <option value="CLIENTE">Cliente</option>
+                        <option value="VEICULO">Veículo</option>
+                        <option value="OS">Ordem de Serviço</option>
+                        <option value="USUARIO">Usuário</option>
+                        <option value="OFICINA">Dados da Oficina</option>
+                        <option value="SISTEMA">Sistema</option>
+                        <option value="LOG">Log</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Data inicial</label>
+                    <input type="date" id="filtroLogDataInicio" onchange="loadLogs()">
+                </div>
+                <div class="form-group">
+                    <label>Data final</label>
+                    <input type="date" id="filtroLogDataFim" onchange="loadLogs()">
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 180px;">Data/Hora</th>
+                            <th>Usuário</th>
+                            <th style="width: 130px;">Ação</th>
+                            <th style="width: 130px;">Entidade</th>
+                            <th>Detalhes</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logsTable"></tbody>
+                </table>
+            </div>
+        </section>
+
         <!-- DADOS DA OFICINA -->
         <section id="section-dadosOficina" class="content-section">
             <div class="section-header">
@@ -491,7 +583,7 @@
 <!-- MODAIS                                     -->
 <!-- ========================================== -->
 
-<!-- MODAL CLIENTE -->
+<!-- MODAL CLIENTE (ATUALIZADO COM PF/PJ) -->
 <div id="clienteModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -501,17 +593,41 @@
         <form id="clienteForm" onsubmit="saveCliente(event)">
             <input type="hidden" id="clienteId">
             <div class="form-grid">
-                <div class="form-group">
-                    <label>Nome Completo *</label>
+                <div class="form-group full-width">
+                    <label>Nome Completo / Razão Social *</label>
                     <input type="text" id="clienteNome" required>
                 </div>
+
+                <!-- TIPO DE PESSOA -->
+                <div class="form-group full-width">
+                    <label>Tipo de Pessoa *</label>
+                    <div class="tipo-pessoa-container">
+                        <label class="radio-custom">
+                            <input type="radio" name="clienteTipo" value="F" checked onchange="toggleTipoPessoa()">
+                            <span class="radio-label">
+                                <i class="fas fa-user"></i> Pessoa Física (CPF)
+                            </span>
+                        </label>
+                        <label class="radio-custom">
+                            <input type="radio" name="clienteTipo" value="J" onchange="toggleTipoPessoa()">
+                            <span class="radio-label">
+                                <i class="fas fa-building"></i> Pessoa Jurídica (CNPJ)
+                            </span>
+                        </label>
+                    </div>
+                </div>
+
                 <div class="form-group">
-                    <label>CPF *</label>
-                    <input type="text" id="clienteCpf" required>
+                    <label id="labelCpfCnpj">CPF *</label>
+                    <input type="text" id="clienteCpf" placeholder="000.000.000-00" required maxlength="14">
+                </div>
+                <div class="form-group">
+                    <label id="labelIdentExtra">RG</label>
+                    <input type="text" id="clienteIdentExtra" placeholder="Ex: 12.345.678-9">
                 </div>
                 <div class="form-group">
                     <label>Telefone *</label>
-                    <input type="text" id="clienteTelefone" required>
+                    <input type="text" id="clienteTelefone" required placeholder="(00) 00000-0000" maxlength="15">
                 </div>
                 <div class="form-group">
                     <label>Email</label>
