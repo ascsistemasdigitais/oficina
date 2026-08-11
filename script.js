@@ -223,16 +223,31 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // 🌐 Monitoramento de conexão com a internet
 function setupNetworkMonitoring() {
+  const updateIndicator = (online) => {
+    const indicator = document.getElementById('networkIndicator');
+    if (!indicator) return;
+    
+    indicator.className = `network-indicator ${online ? 'online' : 'offline'}`;
+    indicator.innerHTML = `<i class="fas fa-circle" style="font-size: 0.5rem;"></i> ${online ? 'Online' : 'Offline'}`;
+  };
+
   window.addEventListener('online', () => {
     isOnline = true;
     enableNetwork(db);
-    const indicator = document.getElementById('networkIndicator');
-    if (indicator) {
-      indicator.textContent = '🟢 Online';
-      indicator.style.color = 'var(--success)';
-    }
+    updateIndicator(true);
     console.log('✅ Conexão restaurada');
   });
+
+  window.addEventListener('offline', () => {
+    isOnline = false;
+    disableNetwork(db);
+    updateIndicator(false);
+    console.log('❌ Sem conexão com a internet');
+  });
+
+  // Inicializa com o estado atual
+  updateIndicator(isOnline);
+}
 
   window.addEventListener('offline', () => {
     isOnline = false;
@@ -251,7 +266,6 @@ function setupNetworkMonitoring() {
     indicator.textContent = isOnline ? '🟢 Online' : '🔴 Offline';
     indicator.style.color = isOnline ? 'var(--success)' : 'var(--danger)';
   }
-}
 
 function updateDate() {
   const now = new Date();
