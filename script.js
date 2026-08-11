@@ -1,8 +1,6 @@
 // ==========================================
 // 1. IMPORTAÇÕES DO FIREBASE
 // ==========================================
-import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
-import { getFirestore, doc, setDoc } from "firebase/firestore";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import {
   getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc
@@ -45,56 +43,14 @@ let appLogs = [];
 // ==========================================
 // 3. FUNÇÕES AUXILIARES DE BANCO DE DADOS E SEGURANÇA
 // ==========================================
-// =====================================================
-// FUNÇÃO GENÉRICA PARA SALVAR / ATUALIZAR DOCUMENTOS
-// =====================================================
 async function saveDocument(collName, data, docId = null) {
-  // 🔒 Proteção: remove campos com valor undefined
-  // (Firestore não aceita undefined — era isso que derrubava seu cadastro)
-  const cleanData = {};
-  for (const chave in data) {
-    if (data[chave] !== undefined) {
-      cleanData[chave] = data[chave];
-    }
-  }
-
   if (docId) {
-    // setDoc com merge: CRIA se não existir, ATUALIZA se existir
-    // (updateDoc daria erro "No document to update" em documento novo)
     const ref = doc(db, collName, docId);
-    await setDoc(ref, cleanData, { merge: true });
+    await updateDoc(ref, data);
     return docId;
   } else {
-    const ref = await addDoc(collection(db, collName), cleanData);
+    const ref = await addDoc(collection(db, collName), data);
     return ref.id;
-  }
-}
-
-// =====================================================
-// CADASTRO DE USUÁRIO  ←  AQUI ESTAVA A CAUSA DO ERRO
-// =====================================================
-async function cadastrarUsuario(nome, email, senha) {
-  try {
-    // 1️⃣ Cria o usuário no Authentication (e ESPERA terminar)
-    const userCredential = await createUserWithEmailAndPassword(auth, email, senha);
-
-    // 2️⃣ Pega o usuário do jeito CERTO (o uid está em .user.uid)
-    const user = userCredential.user;
-
-    // 3️⃣ Salva o perfil usando o uid como ID do documento (evita duplicados)
-    await saveDocument("usuarios", {
-      uid: user.uid,
-      nome: nome,
-      email: user.email,
-      criadoEm: new Date().toISOString()
-    }, user.uid);
-
-    alert("✅ Usuário cadastrado com sucesso!");
-    return user.uid;
-  } catch (error) {
-    console.error("Erro ao salvar usuário:", error);
-    alert("❌ Erro ao salvar usuário: " + error.message);
-    return null;
   }
 }
 
