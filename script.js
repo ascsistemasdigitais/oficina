@@ -3,7 +3,8 @@
 // ==========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import {
-  getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc
+  getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc,
+  enableNetwork, disableNetwork
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import {
   getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged,
@@ -11,7 +12,7 @@ import {
   reauthenticateWithCredential
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-// ⚠️ SUBSTITUA PELAS SUAS CREDENCIAIS REAIS DO FIREBASE CONSOLE
+// ⚠️ SUAS CREDENCIAIS DO FIREBASE
 const firebaseConfig = {
   apiKey: "AIzaSyBSElbhr-e-CcpQ2FE8btxy1IJoVT-pcq8",
   authDomain: "oficina-lourenco.firebaseapp.com",
@@ -21,10 +22,15 @@ const firebaseConfig = {
   appId: "1:306744419215:web:1b2ed7a3270d9e799021fa"
 };
 
-// Inicializa o Firebase
+// Inicializa Firebase principal (para o usuário logado)
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
+
+// 🔥 CORREÇÃO CRÍTICA: Instância secundária para criar usuários
+// Isso evita que o admin seja deslogado ao criar novos usuários
+const secondaryApp = initializeApp(firebaseConfig, "secondary");
+const secondaryAuth = getAuth(secondaryApp);
 
 // ==========================================
 // 2. ESTADO GLOBAL DA APLICAÇÃO
@@ -39,9 +45,10 @@ let appData = {
 let currentUser = null;
 let editingOS = null;
 let appLogs = [];
+let isOnline = navigator.onLine;
 
 // ==========================================
-// 3. FUNÇÕES AUXILIARES DE BANCO DE DADOS E SEGURANÇA
+// 3. FUNÇÕES AUXILIARES DE BANCO DE DADOS
 // ==========================================
 async function saveDocument(collName, data, docId = null) {
   if (docId) {
@@ -66,7 +73,7 @@ function escapeHTML(valor) {
 }
 
 // ==========================================
-// 🔢 MÁSCARAS AUTOMÁTICAS (CPF/CNPJ/TELEFONE)
+// 🔢 MÁSCARAS AUTOMÁTICAS
 // ==========================================
 function aplicarMascaraCPF(valor) {
   valor = valor.replace(/\D/g, '').slice(0, 11);
@@ -133,7 +140,7 @@ async function loadAllData() {
     const userSnap = await getDocs(collection(db, "usuarios"));
     appData.usuarios = userSnap.docs.map(d => {
       const data = d.data();
-      delete data.senha;
+      // ✅ REMOVIDO: delete data.senha (não salvamos senha no Firestore)
       return { id: d.id, ...data };
     });
 
@@ -175,7 +182,7 @@ async function loadAllData() {
     }
   } catch (error) {
     console.error("Erro ao carregar dados:", error);
-    alert("Erro de conexão com o banco de dados. Verifique sua internet e as regras do Firestore.");
+    alert("Erro de conexão com o banco de dados. Verifique sua internet e as regras do Firestore.\n\n" + error.message);
   }
 }
 
@@ -209,9 +216,42 @@ async function registrarLog(acao, entidade, detalhes) {
 document.addEventListener('DOMContentLoaded', function() {
   updateDate();
   setupLogin();
+  setupNetworkMonitoring();
   const now = new Date();
   document.getElementById('faturamentoMes').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 });
+
+// 🌐 Monitoramento de conexão com a internet
+function setupNetworkMonitoring() {
+  window.addEventListener('online', () => {
+    isOnline = true;
+    enableNetwork(db);
+    const indicator = document.getElementById('networkIndicator');
+    if (indicator) {
+      indicator.textContent = '🟢 Online';
+      indicator.style.color = 'var(--success)';
+    }
+    console.log('✅ Conexão restaurada');
+  });
+
+  window.addEventListener('offline', () => {
+    isOnline = false;
+    disableNetwork(db);
+    const indicator = document.getElementById('networkIndicator');
+    if (indicator) {
+      indicator.textContent = '🔴 Offline';
+      indicator.style.color = 'var(--danger)';
+    }
+    console.log('❌ Sem conexão com a internet');
+  });
+
+  // Inicializa o indicador
+  const indicator = document.getElementById('networkIndicator');
+  if (indicator) {
+    indicator.textContent = isOnline ? '🟢 Online' : '🔴 Offline';
+    indicator.style.color = isOnline ? 'var(--success)' : 'var(--danger)';
+  }
+}
 
 function updateDate() {
   const now = new Date();
@@ -238,7 +278,7 @@ function setupLogin() {
         }
         updateDashboard();
       } else {
-        alert("Usuário não encontrado ou inativo.");
+        alert("Usuário não encontrado ou inativo no sistema. Contate o administrador.");
         await signOut(auth);
       }
     } else {
@@ -251,6 +291,12 @@ function setupLogin() {
 
   document.getElementById('loginForm').addEventListener('submit', async function(e) {
     e.preventDefault();
+    
+    if (!isOnline) {
+      alert('⚠️ Você está offline. Verifique sua conexão com a internet.');
+      return;
+    }
+    
     let loginInput = document.getElementById('loginUser').value.trim();
     const password = document.getElementById('loginPass').value;
     
@@ -267,7 +313,14 @@ function setupLogin() {
     } catch (error) {
       console.error("Erro no login:", error);
       const errorEl = document.getElementById('loginError');
-      errorEl.querySelector('span').textContent = "Email ou senha incorretos.";
+      let mensagemErro = "Email ou senha incorretos.";
+      
+      if (error.code === 'auth/user-not-found') mensagemErro = "Usuário não cadastrado.";
+      else if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') mensagemErro = "Senha incorreta.";
+      else if (error.code === 'auth/too-many-requests') mensagemErro = "Muitas tentativas. Aguarde alguns minutos.";
+      else if (error.code === 'auth/network-request-failed') mensagemErro = "Erro de rede. Verifique sua internet.";
+      
+      errorEl.querySelector('span').textContent = mensagemErro;
       errorEl.style.display = 'flex';
       setTimeout(() => { errorEl.style.display = 'none'; }, 3000);
     }
@@ -373,16 +426,13 @@ function openModal(modalId) {
   
   if (modalId === 'veiculoModal') loadClientesSelect('veiculoCliente');
 
-  // ⬇️ Configurar máscaras ao abrir modal de cliente
   if (modalId === 'clienteModal') {
-    // Reseta o tipo de pessoa para o padrão (Física) se for novo cliente
     if (!document.getElementById('clienteId').value) {
       const radioF = document.querySelector('input[name="clienteTipo"][value="F"]');
       if (radioF) radioF.checked = true;
       toggleTipoPessoa();
     }
     
-    // Configurar máscara de CPF/CNPJ
     const inputCpfCnpj = document.getElementById('clienteCpf');
     const novoCpf = inputCpfCnpj.cloneNode(true);
     inputCpfCnpj.parentNode.replaceChild(novoCpf, inputCpfCnpj);
@@ -392,7 +442,6 @@ function openModal(modalId) {
         e.target.value = tipo === 'F' ? aplicarMascaraCPF(valorBruto) : aplicarMascaraCNPJ(valorBruto);
     });
     
-    // Configurar máscara de telefone
     const inputTelefone = document.getElementById('clienteTelefone');
     const novoTel = inputTelefone.cloneNode(true);
     inputTelefone.parentNode.replaceChild(novoTel, inputTelefone);
@@ -414,7 +463,13 @@ function closeModal(modalId) {
     toggleTipoPessoa();
   }
   if (modalId === 'veiculoModal') { document.getElementById('veiculoForm').reset(); document.getElementById('veiculoId').value = ''; document.getElementById('veiculoModalTitle').textContent = 'Novo Veículo'; }
-  if (modalId === 'usuarioModal') { document.getElementById('usuarioForm').reset(); document.getElementById('usuarioId').value = ''; document.getElementById('usuarioModalTitle').textContent = 'Novo Usuário'; }
+  if (modalId === 'usuarioModal') { 
+    document.getElementById('usuarioForm').reset(); 
+    document.getElementById('usuarioId').value = ''; 
+    document.getElementById('usuarioModalTitle').textContent = 'Novo Usuário';
+    document.getElementById('usuarioSenha').disabled = false;
+    document.getElementById('usuarioSenha').placeholder = 'Senha (mínimo 6 caracteres)';
+  }
 }
 
 function toggleBusca(tipo) {
@@ -472,7 +527,6 @@ function loadClientes() {
   const termo = normalizarConsulta(document.getElementById('clientesSearch')?.value || '');
   tbody.innerHTML = '';
 
-  // Compatibilidade com campos antigos (migrando de 'cpf' para 'cpfCnpj')
   const clientesCompat = appData.clientes.map(c => ({
       ...c,
       cpfCnpj: c.cpfCnpj || c.cpf || '',
@@ -506,7 +560,6 @@ async function saveCliente(e) {
   const tipo = document.querySelector('input[name="clienteTipo"]:checked').value;
   const cpfCnpj = document.getElementById('clienteCpf').value;
   
-  // Validação de CPF/CNPJ
   if (tipo === 'F' && !validarCPF(cpfCnpj)) {
       alert('❌ CPF inválido! Verifique os números digitados.');
       document.getElementById('clienteCpf').focus();
@@ -516,6 +569,16 @@ async function saveCliente(e) {
       alert('❌ CNPJ inválido! Verifique os números digitados.');
       document.getElementById('clienteCpf').focus();
       return;
+  }
+
+  // ✅ NOVA VALIDAÇÃO: Verificar duplicata de CPF/CNPJ
+  const duplicata = appData.clientes.find(c => 
+    (c.cpfCnpj || c.cpf) === cpfCnpj && c.id !== id
+  );
+  if (duplicata) {
+    alert(`❌ Já existe um cliente cadastrado com este ${tipo === 'F' ? 'CPF' : 'CNPJ'}!\n\nCliente: ${duplicata.nome}`);
+    document.getElementById('clienteCpf').focus();
+    return;
   }
 
   const data = {
@@ -541,7 +604,7 @@ async function saveCliente(e) {
     closeModal('clienteModal'); loadClientes(); updateDashboard();
   } catch (error) {
     console.error("Erro ao salvar cliente:", error);
-    alert("Erro ao salvar cliente. Verifique sua conexão.");
+    alert("Erro ao salvar cliente. Verifique sua conexão.\n\n" + error.message);
   }
 }
 
@@ -550,13 +613,11 @@ function editCliente(id) {
   document.getElementById('clienteId').value = c.id;
   document.getElementById('clienteNome').value = c.nome;
   
-  // Definir tipo de pessoa (padrão: F se não tiver)
   const tipo = c.tipo || 'F';
   const radio = document.querySelector(`input[name="clienteTipo"][value="${tipo}"]`);
   if (radio) radio.checked = true;
   toggleTipoPessoa();
   
-  // Carregar dados nos campos
   const cpfCnpj = c.cpfCnpj || c.cpf || '';
   const inputCpf = document.getElementById('clienteCpf');
   const novoCpf = inputCpf.cloneNode(true);
@@ -570,7 +631,6 @@ function editCliente(id) {
   
   document.getElementById('clienteIdentExtra').value = c.identExtra || '';
   
-  // Configurar máscara de telefone
   const inputTelefone = document.getElementById('clienteTelefone');
   const novoTel = inputTelefone.cloneNode(true);
   inputTelefone.parentNode.replaceChild(novoTel, inputTelefone);
@@ -632,8 +692,19 @@ function loadVeiculos() {
 async function saveVeiculo(e) {
   e.preventDefault();
   const id = document.getElementById('veiculoId').value;
+  const placa = document.getElementById('veiculoPlaca').value.trim().toUpperCase();
+  
+  // ✅ NOVA VALIDAÇÃO: Placa duplicada para o mesmo cliente
+  const duplicata = appData.veiculos.find(v => 
+    v.placa.toLowerCase() === placa.toLowerCase() && v.clienteId === document.getElementById('veiculoCliente').value && v.id !== id
+  );
+  if (duplicata) {
+    alert(`❌ Já existe um veículo com a placa ${placa} cadastrado para este cliente!`);
+    return;
+  }
+  
   const data = {
-    placa: document.getElementById('veiculoPlaca').value,
+    placa: placa,
     marca: document.getElementById('veiculoMarca').value,
     modelo: document.getElementById('veiculoModelo').value,
     ano: document.getElementById('veiculoAno').value,
@@ -692,7 +763,6 @@ function loadClientesSelect(selectId) {
   const select = document.getElementById(selectId);
   select.innerHTML = '<option value="">Selecione o cliente</option>';
   
-  // Compatibilidade com dados antigos
   const clientesCompat = appData.clientes.map(c => ({
       ...c,
       tipo: c.tipo || 'F'
@@ -891,7 +961,6 @@ function viewOS(id) {
   const cliente = appData.clientes.find(c => c.id === o.clienteId);
   const veiculo = appData.veiculos.find(v => v.id === o.veiculoId);
   
-  // Compatibilidade com dados antigos
   const clienteTipo = cliente?.tipo || 'F';
   const clienteDoc = cliente?.cpfCnpj || cliente?.cpf || '-';
 
@@ -983,7 +1052,7 @@ function updateOSTotals() {
 }
 
 // ==========================================
-// 🔒 10. USUÁRIOS
+// 🔒 10. USUÁRIOS (CORRIGIDO)
 // ==========================================
 function loadUsuarios() {
   const tbody = document.getElementById('usuariosTable');
@@ -1015,18 +1084,44 @@ async function saveUsuario(e) {
   const tipo = document.getElementById('usuarioTipo').value;
   const status = document.getElementById('usuarioStatus').value;
 
+  // Validação básica
+  if (!nome || !login) {
+    alert('❌ Nome e email são obrigatórios.');
+    return;
+  }
+  
+  if (!id && !senha) {
+    alert('❌ Senha é obrigatória para criar um novo usuário.');
+    return;
+  }
+
+  // ✅ VALIDAÇÃO: Evitar email duplicado
+  const emailDuplicado = appData.usuarios.find(u => u.login === login && u.id !== id);
+  if (emailDuplicado) {
+    alert('❌ Já existe um usuário cadastrado com este email!');
+    return;
+  }
+
   try {
     let uid = null;
+    
     if (!id && senha) {
+      // 🔥 CORREÇÃO CRÍTICA: Usa instância secundária para criar usuário
+      // O admin continua logado enquanto cria o novo usuário
       try {
-        const userCredential = await createUserWithEmailAndPassword(auth, login, senha);
+        const userCredential = await createUserWithEmailAndPassword(secondaryAuth, login, senha);
         uid = userCredential.user.uid;
+        // Logout da instância secundária (importante!)
+        await signOut(secondaryAuth);
       } catch (authError) {
         if (authError.code === 'auth/email-already-in-use') {
           alert('⚠️ Este email já está em uso no Firebase Authentication.');
           return;
         } else if (authError.code === 'auth/weak-password') {
           alert('⚠️ A senha deve ter pelo menos 6 caracteres.');
+          return;
+        } else if (authError.code === 'auth/invalid-email') {
+          alert('⚠️ Formato de email inválido.');
           return;
         } else {
           throw authError;
@@ -1049,7 +1144,7 @@ async function saveUsuario(e) {
     
     closeModal('usuarioModal'); 
     loadUsuarios();
-    alert('✅ Usuário salvo com sucesso!');
+    alert(`✅ ${id ? 'Usuário editado' : 'Usuário criado'} com sucesso!\n\n${!id ? 'O usuário já pode fazer login com as credenciais informadas.' : ''}`);
   } catch (error) {
     console.error("Erro ao salvar usuário:", error);
     alert("❌ Erro ao salvar usuário: " + error.message);
@@ -1078,7 +1173,7 @@ async function deleteUsuario(id) {
       appData.usuarios = appData.usuarios.filter(u => u.id !== id);
       await registrarLog('EXCLUIR', 'USUARIO', `Usuário excluído: ${u.nome} (${u.login})`);
       loadUsuarios();
-      alert('✅ Usuário removido do sistema.');
+      alert('✅ Usuário removido do sistema.\n\n📌 Lembre-se de removê-lo também em Firebase Console > Authentication > Users');
     } catch (error) {
       console.error("Erro ao excluir usuário:", error);
       alert("Erro ao excluir usuário.");
@@ -1345,7 +1440,6 @@ async function importExcel(event) {
         const nomeCliente = cols[0].trim(), cpfCliente = cols[1].trim(), placa = cols[2].trim();
         const tipoServico = cols[3].trim(), valorPecas = parseFloat(cols[4]) || 0, valorMaoObra = parseFloat(cols[5]) || 0, dataServico = cols[6].trim();
 
-        // Compatibilidade: importados antigos são tratados como PF
         let cliente = appData.clientes.find(c => (c.cpfCnpj || c.cpf || '') === cpfCliente);
         if (!cliente) { 
           const newCid = await saveDocument('clientes', { 
@@ -1430,7 +1524,6 @@ function getStatusLabel(status) {
 
 async function fazerBackup() {
   const dadosSeguros = JSON.parse(JSON.stringify(appData));
-  dadosSeguros.usuarios.forEach(u => delete u.senha);
   
   const dados = JSON.stringify(dadosSeguros);
   const dataAtual = new Date().toISOString().split('T')[0];
