@@ -175,7 +175,12 @@ async function loadAllData() {
         cnpj: '',
         endereco: 'Rua Arnaldo Bonaventura, 649 - Cidade Tiradentes - SP',
         telefone: '(11) 96400-9152',
-        email: 'contato@automecanicalourenco.com'
+        email: 'contato@automecanicalourenco.com',
+        favorecido: '',
+        banco: '',
+        agencia: '',
+        conta: '',
+        pix: ''
       };
       const newId = await saveDocument('dadosOficina', appData.dadosOficina);
       appData.dadosOficina.id = newId;
@@ -290,6 +295,7 @@ function setupLogin() {
         if (found.tipo !== 'admin') { 
           document.getElementById('adminSection').style.display = 'none'; 
         }
+        showSection('dashboard');
         updateDashboard();
       } else {
         alert("Usuário não encontrado ou inativo no sistema. Contate o administrador.");
@@ -300,6 +306,11 @@ function setupLogin() {
       document.getElementById('mainSystem').style.display = 'none';
       document.getElementById('loginScreen').style.display = 'flex';
       document.getElementById('adminSection').style.display = 'block';
+      document.getElementById('pageTitle').textContent = 'Painel de Controle';
+      document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      const dashboardSection = document.getElementById('section-dashboard');
+      if (dashboardSection) dashboardSection.classList.add('active');
     }
   });
 
@@ -350,6 +361,11 @@ async function logout() {
   if (currentUser) {
     await registrarLog('LOGOUT', 'SISTEMA', `Usuário ${currentUser.nome} saiu do sistema`);
   }
+  document.getElementById('pageTitle').textContent = 'Painel de Controle';
+  document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const dashboardSection = document.getElementById('section-dashboard');
+  if (dashboardSection) dashboardSection.classList.add('active');
   try { await signOut(auth); } catch (error) { console.error("Erro ao fazer logout:", error); }
 }
 
@@ -1019,6 +1035,16 @@ function viewOS(id) {
       <div class="total-row"><span>Total Mão de Obra:</span><span>${formatCurrency(o.totalMaoObra)}</span></div>
       <div class="total-row total-final"><span>VALOR TOTAL:</span><span>${formatCurrency(o.valorTotal)}</span></div>
     </div>
+    <div class="os-print-payment">
+      <h4>Dados para Pagamento</h4>
+      <div class="os-print-payment-grid">
+        <div><label>Nome do Favorecido</label><span>${escapeHTML(appData.dadosOficina.favorecido || '-')}</span></div>
+        <div><label>Banco</label><span>${escapeHTML(appData.dadosOficina.banco || '-')}</span></div>
+        <div><label>Agência</label><span>${escapeHTML(appData.dadosOficina.agencia || '-')}</span></div>
+        <div><label>Conta</label><span>${escapeHTML(appData.dadosOficina.conta || '-')}</span></div>
+        <div style="grid-column: 1 / -1;"><label>Chave Pix</label><span>${escapeHTML(appData.dadosOficina.pix || '-')}</span></div>
+      </div>
+    </div>
     <div style="margin-top: 50px; display: grid; grid-template-columns: 1fr 1fr; gap: 50px; text-align: center;">
       <div><div style="border-top: 1px solid #333; padding-top: 10px;"><p>Assinatura do Cliente</p></div></div>
       <div><div style="border-top: 1px solid #333; padding-top: 10px;"><p>Assinatura do Responsável</p></div></div>
@@ -1201,6 +1227,11 @@ function loadDadosOficina() {
   document.getElementById('oficinaEndereco').value = appData.dadosOficina.endereco || '';
   document.getElementById('oficinaTelefone').value = appData.dadosOficina.telefone || '';
   document.getElementById('oficinaEmail').value = appData.dadosOficina.email || '';
+  document.getElementById('oficinaFavorecido').value = appData.dadosOficina.favorecido || '';
+  document.getElementById('oficinaBanco').value = appData.dadosOficina.banco || '';
+  document.getElementById('oficinaAgencia').value = appData.dadosOficina.agencia || '';
+  document.getElementById('oficinaConta').value = appData.dadosOficina.conta || '';
+  document.getElementById('oficinaPix').value = appData.dadosOficina.pix || '';
 }
 
 async function saveDadosOficina(e) {
@@ -1210,7 +1241,12 @@ async function saveDadosOficina(e) {
     cnpj: document.getElementById('oficinaCnpj').value,
     endereco: document.getElementById('oficinaEndereco').value,
     telefone: document.getElementById('oficinaTelefone').value,
-    email: document.getElementById('oficinaEmail').value
+    email: document.getElementById('oficinaEmail').value,
+    favorecido: document.getElementById('oficinaFavorecido').value,
+    banco: document.getElementById('oficinaBanco').value,
+    agencia: document.getElementById('oficinaAgencia').value,
+    conta: document.getElementById('oficinaConta').value,
+    pix: document.getElementById('oficinaPix').value
   };
   try {
     await saveDocument('dadosOficina', data, appData.dadosOficina.id);
