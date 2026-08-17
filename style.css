@@ -357,6 +357,13 @@ body { font-family: 'Inter', sans-serif; background: #f0f2f5; color: var(--dark)
 .os-print-table th { background: var(--primary); color: white; }
 .os-print-total { text-align: right; padding: 20px; background: #f8f9fa; border-radius: var(--radius); }
 .os-print-total .total-final { font-size: 1.3rem; color: var(--primary-dark); font-weight: 700; }
+.os-print-payment { margin-top: 30px; padding: 20px; background: #f8f9fa; border: 1px solid var(--gray-light); border-radius: var(--radius); }
+.os-print-payment h4 { margin: 0 0 15px; color: var(--primary-dark); font-size: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.os-print-payment-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
+.os-print-payment-grid div { padding: 12px 15px; background: white; border: 1px solid var(--gray-light); border-radius: 8px; }
+.os-print-payment-grid div[style*="grid-column: 1 / -1"] { grid-column: 1 / -1; }
+.os-print-payment label { display: block; margin-bottom: 5px; font-size: 0.75rem; color: var(--gray); text-transform: uppercase; }
+.os-print-payment span { font-weight: 700; color: var(--dark); word-break: break-word; }
 
 /* BACKUP E RESTAURAÇÃO */
 .backup-container {
