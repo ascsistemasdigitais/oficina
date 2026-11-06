@@ -53,5 +53,5 @@ Padrão usado: **Modelagem por referência + Log de eventos para auditoria**
 Utiliza `Transaction` no Firestore em um documento `contadores/os` para garantir que mesmo com 2 usuários criando OS ao mesmo tempo, a numeração nunca duplique.
 
 ---
-Desenvolvido por Alexandre Silva da Costa | Eng. da Computação - 2029
+Desenvolvido por Alexandre Silva da Costa | Eng. da Computação - 2026
 Foco: Evolução para Arquitetura de Dados e Sistemas Web
